@@ -13,7 +13,7 @@ app.use(express.json({ limit: "50mb" }));
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "dhdq6fpsv",
   api_key: process.env.CLOUDINARY_API_KEY || "996593378718384",
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  api_secret: process.env.CLOUDINARY_API_SECRET || "RySWFrVv2tLnDDnSGGveW6YPMlQ"
 });
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -32,7 +32,8 @@ app.post("/api/upload/base64", async (req, res) => {
       return res.status(400).json({ error: "Missing imageBase64" });
     }
     
-    if (!process.env.CLOUDINARY_API_SECRET) {
+    const apiSecret = process.env.CLOUDINARY_API_SECRET || "RySWFrVv2tLnDDnSGGveW6YPMlQ";
+    if (!apiSecret) {
       return res.status(500).json({ error: "Cloudinary API Secret is not configured in .env" });
     }
 
@@ -55,7 +56,8 @@ app.post("/api/upload/file", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "Missing file" });
     }
     
-    if (!process.env.CLOUDINARY_API_SECRET) {
+    const apiSecret = process.env.CLOUDINARY_API_SECRET || "RySWFrVv2tLnDDnSGGveW6YPMlQ";
+    if (!apiSecret) {
       return res.status(500).json({ error: "Cloudinary API Secret is not configured in .env" });
     }
 
