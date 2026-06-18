@@ -56,7 +56,6 @@ const CATEGORY_SUBS: Record<Category, string> = {
 declare global {
   interface Window {
     addOrUpdateCard: (artistName: string, base64Image: string, promptText?: string) => void;
-    ultimateRepair: () => void;
   }
 }
 
@@ -72,41 +71,6 @@ export default function App() {
   }, [folders]);
 
   useEffect(() => {
-    window.ultimateRepair = () => {
-      const hsFolderIds = foldersRef.current.filter(f => f.name.includes('画师串')).map(f => f.id);
-
-      setPrompts(prev => {
-        let addedCount = 0;
-        let removedCount = 0;
-
-        const newPrompts = prev.map(p => {
-          let newPromptStr = p.prompts || '';
-
-          // 1. 给名为“画师串”的文件夹所有卡片加前缀（如果没有的话）
-          if (hsFolderIds.includes(p.folderId as string)) {
-            if (!newPromptStr.toLowerCase().startsWith('artist:')) {
-               newPromptStr = `artist:${newPromptStr}`;
-               addedCount++;
-            }
-          } 
-          // 2. 除了 'main' 类别（也就是画风分类），其他分类下去除所有的开头前缀
-          else if (p.categoryId !== 'main') {
-            const match = newPromptStr.match(/^artist:\s*/i);
-            if (match) {
-               newPromptStr = newPromptStr.substring(match[0].length);
-               removedCount++;
-            }
-          }
-
-          return { ...p, prompts: newPromptStr };
-        });
-
-        savePrompts(newPrompts).catch(console.error);
-        console.log(`✅ 修复完成！\n- 给“画师串”文件夹内卡片加前缀：${addedCount} 张\n- 去除其他（服装、角色库等）类别的开头前缀：${removedCount} 张`);
-        return newPrompts;
-      });
-    };
-
     window.addOrUpdateCard = async (artistName: string, base64Image: string, incomingPromptText?: string) => {
       if (!artistName || !base64Image) return;
 

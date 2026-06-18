@@ -62,7 +62,7 @@ export function ArtistCombiner({ prompts, onOpenDetail }: ArtistCombinerProps) {
 
   // Filter artist cards
   const artistCards = useMemo(() => {
-    return prompts.filter(p => p.prompts && p.prompts.toLowerCase().trim().startsWith('artist'));
+    return prompts.filter(p => p.categoryId === 'main');
   }, [prompts]);
 
   // Initial combination setup
