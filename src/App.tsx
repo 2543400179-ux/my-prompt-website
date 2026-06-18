@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { PromptCard } from './components/PromptCard';
 import { PromptFormModal } from './components/PromptFormModal';
@@ -57,6 +57,7 @@ declare global {
   interface Window {
     addOrUpdateCard: (artistName: string, base64Image: string) => void;
     fixArtistPrefix: () => void;
+    undoFixArtistPrefix: () => void;
   }
 }
 
@@ -66,12 +67,43 @@ export default function App() {
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   
+  const foldersRef = useRef<FolderItem[]>([]);
   useEffect(() => {
-    // 注入修复脚本供控制台调用
+    foldersRef.current = folders;
+  }, [folders]);
+
+  useEffect(() => {
+    // 注入修复和撤销脚本供控制台调用
+    window.undoFixArtistPrefix = () => {
+      const galleryIds = foldersRef.current.filter(f => f.name.includes('画廊')).map(f => f.id);
+      setPrompts(prev => {
+        let modifiedCount = 0;
+        const newPrompts = prev.map(p => {
+          // 只撤销非画廊文件夹中，且 prompts 恰好等于 "artist:" + title 的项
+          // 这样能绝对保证不会误伤你原本就带有 artist: 的手写详细 prompt 或独立存在的卡片
+          const notInGallery = !galleryIds.includes(p.folderId as string);
+          if (notInGallery && p.prompts === `artist:${p.title}`) {
+            modifiedCount++;
+            return {
+              ...p,
+              prompts: p.title // 还原回纯标题
+            };
+          }
+          return p;
+        });
+        savePrompts(newPrompts).catch(console.error);
+        console.log(`撤销完成！精准识别并还原了 ${modifiedCount} 张被误加前缀的卡片！您原本手写编辑过的卡片已安全跳过。`);
+        return newPrompts;
+      });
+    };
+
     window.fixArtistPrefix = () => {
+      const galleryIds = foldersRef.current.filter(f => f.name.includes('画廊')).map(f => f.id);
       setPrompts(prev => {
         const newPrompts = prev.map(p => {
-          if (p.prompts && !p.prompts.toLowerCase().includes('artist:')) {
+          // 只给画廊文件夹添加前缀
+          const inGallery = galleryIds.includes(p.folderId as string);
+          if (inGallery && p.prompts && !p.prompts.toLowerCase().includes('artist:')) {
             return {
               ...p,
               prompts: `artist:${p.prompts}`
@@ -82,7 +114,7 @@ export default function App() {
         savePrompts(newPrompts).catch(console.error);
         return newPrompts;
       });
-      console.log("已批量为没有 artist: 前缀的卡片修复了 prompts 字段！");
+      console.log("修复完成！只为画廊文件夹中没有 artist: 的卡片添加了前缀！");
     };
 
     window.addOrUpdateCard = async (artistName: string, base64Image: string) => {
