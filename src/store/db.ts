@@ -42,19 +42,27 @@ export async function savePrompts(prompts: PromptItem[]): Promise<void> {
   await set(STORE_KEY, prompts);
   
   // Write everything to Firestore using a batch to avoid huge writes
-  // In a real app we'd do individual updates, but for this scale batching is fine
   try {
-    const batch = writeBatch(db);
-    
-    // To prevent deleting data we just sync up. We should technically diff or delete missing.
-    // For simplicity, we just completely write all current items. 
-    prompts.forEach(p => {
-      const ref = doc(db, "prompts", p.id);
-      const cleanP = Object.fromEntries(Object.entries(p).filter(([_, v]) => v !== undefined));
-      batch.set(ref, cleanP);
+    // Only save items that don't have base64 images, because base64 strings are too large for Firestore
+    const validPrompts = prompts.filter(p => {
+      const hasBase64 = (p.imageUrl && p.imageUrl.startsWith('data:image')) || 
+                        (p.imageUrls && p.imageUrls.some((u: string) => u.startsWith('data:image')));
+      return !hasBase64;
     });
-    
-    await batch.commit();
+
+    // Firestore allows max 500 writes per batch. We use 100 to keep payload sizes small.
+    for (let i = 0; i < validPrompts.length; i += 100) {
+      const chunk = validPrompts.slice(i, i + 100);
+      const batch = writeBatch(db);
+      
+      chunk.forEach(p => {
+        const ref = doc(db, "prompts", p.id);
+        const cleanP = Object.fromEntries(Object.entries(p).filter(([_, v]) => v !== undefined));
+        batch.set(ref, cleanP);
+      });
+      
+      await batch.commit();
+    }
   } catch (err) {
     console.error("Failed to sync prompts to Firebase", err);
   }
