@@ -10,9 +10,10 @@ import { FolderCard } from './components/FolderCard';
 import { FolderModal } from './components/FolderModal';
 import { ImportProgressModal } from './components/ImportProgressModal';
 import { ArtistCombiner } from './components/ArtistCombiner';
-import { fetchPrompts, savePrompts, fetchFolders, saveFolders } from './store/db';
+import { fetchPrompts, savePrompts, fetchFolders, saveFolders, deletePromptFromDB, deleteFolderFromDB } from './store/db';
 import { Category, PromptItem, FolderItem } from './types';
 import { compressImage, generateId, cn } from './lib/utils';
+import { MigrationBanner } from './components/MigrationBanner';
 import { AnimatePresence, motion } from 'motion/react';
 import { LayoutGrid, LayoutList, Eye, EyeOff, ChevronUp, ChevronDown, Share2, Download, X, FolderPlus, ArrowLeft, Plus, Trash2, Search } from 'lucide-react';
 import JSZip from 'jszip';
@@ -65,48 +66,55 @@ export default function App() {
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   
   useEffect(() => {
-    window.addOrUpdateCard = (artistName: string, base64Image: string) => {
+    window.addOrUpdateCard = async (artistName: string, base64Image: string) => {
       if (!artistName || !base64Image) return;
 
-      setPrompts(prev => {
-        const targetFolderId = currentFolderId || undefined;
-        // Search inside the current folder (or root if currentFolderId is null)
-        const existingCardIndex = prev.findIndex(p => 
-          p.title === artistName && p.folderId === targetFolderId && p.categoryId === currentCategory
-        );
+      try {
+        const { uploadBase64ToCloudinary } = await import('./lib/cloudinary');
+        const secureUrl = await uploadBase64ToCloudinary(base64Image);
 
-        let newPrompts = [...prev];
+        setPrompts(prev => {
+          const targetFolderId = currentFolderId || undefined;
+          // Search inside the current folder (or root if currentFolderId is null)
+          const existingCardIndex = prev.findIndex(p => 
+            p.title === artistName && p.folderId === targetFolderId && p.categoryId === currentCategory
+          );
 
-        if (existingCardIndex >= 0) {
-          // Update existing card by pushing the base64 string
-          const existing = newPrompts[existingCardIndex];
-          const newImages = existing.imageUrls ? [...existing.imageUrls] : (existing.imageUrl ? [existing.imageUrl] : []);
-          newImages.push(base64Image);
+          let newPrompts = [...prev];
 
-          newPrompts[existingCardIndex] = {
-            ...existing,
-            imageUrls: newImages,
-            imageUrl: newImages[0]
-          };
-        } else {
-          // Create new card
-          const newPrompt: PromptItem = {
-            id: generateId(),
-            categoryId: currentCategory,
-            folderId: targetFolderId,
-            title: artistName,
-            prompts: artistName,
-            tags: [],
-            imageUrls: [base64Image],
-            imageUrl: base64Image,
-            createdAt: Date.now()
-          };
-          newPrompts = [newPrompt, ...newPrompts];
-        }
+          if (existingCardIndex >= 0) {
+            // Update existing card by pushing the secureUrl
+            const existing = newPrompts[existingCardIndex];
+            const newImages = existing.imageUrls ? [...existing.imageUrls] : (existing.imageUrl ? [existing.imageUrl] : []);
+            newImages.push(secureUrl);
 
-        savePrompts(newPrompts).catch(console.error);
-        return newPrompts;
-      });
+            newPrompts[existingCardIndex] = {
+              ...existing,
+              imageUrls: newImages,
+              imageUrl: newImages[0]
+            };
+          } else {
+            // Create new card
+            const newPrompt: PromptItem = {
+              id: generateId(),
+              categoryId: currentCategory,
+              folderId: targetFolderId,
+              title: artistName,
+              prompts: artistName,
+              tags: [],
+              imageUrls: [secureUrl],
+              imageUrl: secureUrl,
+              createdAt: Date.now()
+            };
+            newPrompts = [newPrompt, ...newPrompts];
+          }
+
+          savePrompts(newPrompts).catch(console.error);
+          return newPrompts;
+        });
+      } catch (err) {
+        console.error("External addOrUpdateCard failed to upload image:", err);
+      }
     };
   }, [currentFolderId, currentCategory]);
 
@@ -444,6 +452,7 @@ export default function App() {
         setFolders(prev => {
           const newFolders = prev.filter(f => f.id !== id);
           saveFolders(newFolders);
+          deleteFolderFromDB(id);
           return newFolders;
         });
         
@@ -504,6 +513,7 @@ export default function App() {
     setPrompts(prev => {
       const newPrompts = prev.filter(p => p.id !== id);
       savePrompts(newPrompts);
+      deletePromptFromDB(id);
       return newPrompts;
     });
   };
@@ -874,6 +884,7 @@ export default function App() {
         <Sidebar currentCategory={currentCategory} onSelect={handleSelectCategory} />
         
         <main className="flex-1 flex flex-col h-full bg-white relative overflow-hidden w-full">
+          <MigrationBanner prompts={prompts} setPrompts={setPrompts} />
           <header className="h-auto py-3 lg:py-0 lg:h-16 border-b border-border-subtle flex flex-col md:flex-row px-4 sm:px-6 md:px-8 shrink-0 bg-bg/50 backdrop-blur-sm z-30 gap-3 md:gap-4 md:items-center w-full">
             <div className="flex items-center justify-between w-full md:w-auto shrink-0 gap-3 md:gap-4">
               <h2 className="font-serif text-lg md:text-xl flex items-center md:items-baseline whitespace-nowrap gap-2 md:gap-3 overflow-hidden">
@@ -1100,6 +1111,7 @@ export default function App() {
                         setPrompts(prev => {
                           const newPrompts = prev.filter(p => !selectedPromptIds.includes(p.id));
                           savePrompts(newPrompts);
+                          selectedPromptIds.forEach(id => deletePromptFromDB(id));
                           return newPrompts;
                         });
                         setSelectedPromptIds([]);

@@ -55,7 +55,9 @@ export function PromptFormModal({ isOpen, onClose, onSave, category, initialData
         }
         try {
           const compressedBase64 = await compressImage(file);
-          newPreviews.push(compressedBase64);
+          const { uploadBase64ToCloudinary } = await import('../lib/cloudinary');
+          const secureUrl = await uploadBase64ToCloudinary(compressedBase64);
+          newPreviews.push(secureUrl);
         } catch (err) {
           console.error("图片处理失败 / Failed to process image", err);
         }
@@ -103,7 +105,9 @@ export function PromptFormModal({ isOpen, onClose, onSave, category, initialData
         }
         try {
           const compressedBase64 = await compressImage(file);
-          newPreviews.push(compressedBase64);
+          const { uploadBase64ToCloudinary } = await import('../lib/cloudinary');
+          const secureUrl = await uploadBase64ToCloudinary(compressedBase64);
+          newPreviews.push(secureUrl);
         } catch (err) {
           console.error("图片处理失败 / Failed to process image", err);
         }
