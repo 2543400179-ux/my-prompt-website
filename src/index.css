@@ -1,0 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #F5F2ED;
+  --color-ink: #1A1A1A;
+  --color-border-subtle: rgba(26, 26, 26, 0.1);
+  --color-border-medium: rgba(26, 26, 26, 0.2);
+  --color-ink-light: rgba(26, 26, 26, 0.6);
+  --color-ink-lighter: rgba(26, 26, 26, 0.4);
+  --color-ink-lightest: rgba(26, 26, 26, 0.2);
+  
+  --font-serif: "Noto Serif SC", Georgia, serif;
+  --font-sans: "Helvetica Neue", Arial, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply font-sans bg-bg text-ink antialiased overflow-hidden m-0;
+    height: 100dvh;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-ink-lightest;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-ink-light;
+}
+
+/* Layout Utilities */
+.scroll-mask {
+  mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+}
