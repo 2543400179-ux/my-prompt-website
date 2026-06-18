@@ -56,6 +56,7 @@ const CATEGORY_SUBS: Record<Category, string> = {
 declare global {
   interface Window {
     addOrUpdateCard: (artistName: string, base64Image: string) => void;
+    fixArtistPrefix: () => void;
   }
 }
 
@@ -66,12 +67,38 @@ export default function App() {
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   
   useEffect(() => {
+    // 注入修复脚本供控制台调用
+    window.fixArtistPrefix = () => {
+      setPrompts(prev => {
+        const newPrompts = prev.map(p => {
+          if (p.prompts && !p.prompts.toLowerCase().includes('artist:')) {
+            return {
+              ...p,
+              prompts: `artist:${p.prompts}`
+            };
+          }
+          return p;
+        });
+        savePrompts(newPrompts).catch(console.error);
+        return newPrompts;
+      });
+      console.log("已批量为没有 artist: 前缀的卡片修复了 prompts 字段！");
+    };
+
     window.addOrUpdateCard = async (artistName: string, base64Image: string) => {
       if (!artistName || !base64Image) return;
 
       try {
         const { uploadBase64ToCloudinary } = await import('./lib/cloudinary');
-        const secureUrl = await uploadBase64ToCloudinary(base64Image);
+        
+        let secureUrl = base64Image;
+        try {
+          // 尝试直接上云
+          secureUrl = await uploadBase64ToCloudinary(base64Image);
+        } catch (uploadErr) {
+          console.warn("Direct upload failed, saving as base64 locally to be migrated later:", uploadErr);
+          // 如果失败，保留 base64，留给 MigrationBanner 处理，确保一定能存进网页
+        }
 
         setPrompts(prev => {
           const targetFolderId = currentFolderId || undefined;
@@ -81,6 +108,8 @@ export default function App() {
           );
 
           let newPrompts = [...prev];
+
+          const promptText = artistName.toLowerCase().includes('artist:') ? artistName : `artist:${artistName}`;
 
           if (existingCardIndex >= 0) {
             // Update existing card by pushing the secureUrl
@@ -100,7 +129,7 @@ export default function App() {
               categoryId: currentCategory,
               folderId: targetFolderId,
               title: artistName,
-              prompts: artistName,
+              prompts: promptText,
               tags: [],
               imageUrls: [secureUrl],
               imageUrl: secureUrl,
@@ -113,7 +142,7 @@ export default function App() {
           return newPrompts;
         });
       } catch (err) {
-        console.error("External addOrUpdateCard failed to upload image:", err);
+        console.error("External addOrUpdateCard failed:", err);
       }
     };
   }, [currentFolderId, currentCategory]);
