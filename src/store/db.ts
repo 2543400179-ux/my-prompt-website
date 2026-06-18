@@ -38,17 +38,28 @@ export async function fetchPrompts(): Promise<PromptItem[]> {
 }
 
 export async function savePrompts(prompts: PromptItem[]): Promise<void> {
+  const oldPrompts = await get<PromptItem[]>(STORE_KEY) || [];
+
   // Save locally first for instant feel
   await set(STORE_KEY, prompts);
   
   // Write everything to Firestore using a batch to avoid huge writes
   try {
+    const oldMap = new Map(oldPrompts.map(p => [p.id, JSON.stringify(p)]));
+
     // Only save items that don't have base64 images, because base64 strings are too large for Firestore
     const validPrompts = prompts.filter(p => {
-      const hasBase64 = (p.imageUrl && p.imageUrl.startsWith('data:image')) || 
-                        (p.imageUrls && p.imageUrls.some((u: string) => u.startsWith('data:image')));
-      return !hasBase64;
+      const hasBase64 = (p.imageUrl && p.imageUrl.startsWith('data:')) || 
+                        (p.imageUrls && p.imageUrls.some((u: string) => u.startsWith('data:')));
+      if (hasBase64) return false;
+
+      const newStr = JSON.stringify(p);
+      return !oldMap.has(p.id) || oldMap.get(p.id) !== newStr;
     });
+
+    if (validPrompts.length === 0) {
+      return;
+    }
 
     // Firestore allows max 500 writes per batch. We use 100 to keep payload sizes small.
     for (let i = 0; i < validPrompts.length; i += 100) {

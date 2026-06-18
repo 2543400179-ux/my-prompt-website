@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 
 const firebaseConfig = {
   projectId: "mystical-atlas-460010-r3",
@@ -13,3 +14,5 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, "ai-studio-896b3c1e-14f2-4ad5-b200-b59686f1a187");
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
