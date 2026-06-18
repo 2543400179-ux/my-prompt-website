@@ -18,10 +18,11 @@ interface PromptCardProps {
   isHighlighted?: boolean;
   onToggleSelect?: (id: string) => void;
   onToggleFavorite?: (id: string, e?: React.MouseEvent) => void;
+  onDoubleClick?: (item: PromptItem) => void;
   readOnly?: boolean;
 }
 
-export const PromptCard: React.FC<PromptCardProps> = ({ item, onDelete, isManualSort, onClickDetail, displayMode, privacyMode, selectionMode, isSelected, isHighlighted, onToggleSelect, onToggleFavorite, readOnly }) => {
+export const PromptCard: React.FC<PromptCardProps> = ({ item, onDelete, isManualSort, onClickDetail, displayMode, privacyMode, selectionMode, isSelected, isHighlighted, onToggleSelect, onToggleFavorite, onDoubleClick, readOnly }) => {
   const [copied, setCopied] = useState(false);
 
   const {
@@ -54,17 +55,44 @@ export const PromptCard: React.FC<PromptCardProps> = ({ item, onDelete, isManual
     onDelete(item.id);
   };
 
+  const clickTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (selectionMode && onToggleSelect) {
+      onToggleSelect(item.id);
+      return;
+    }
+    
+    // 如果有双击事件处理，则我们延迟执行单击，以便判断是否是双击
+    if (onDoubleClick && !readOnly) {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+        clickTimeoutRef.current = null;
+      }
+      clickTimeoutRef.current = setTimeout(() => {
+        onClickDetail(item);
+      }, 250); // 250ms 用于判定双击
+    } else {
+      onClickDetail(item);
+    }
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+    }
+    if (!selectionMode && onDoubleClick && !readOnly) {
+      onDoubleClick(item);
+    }
+  };
+
   return (
     <div 
       ref={setNodeRef}
       style={style}
-      onClick={() => {
-        if (selectionMode && onToggleSelect) {
-          onToggleSelect(item.id);
-        } else {
-          onClickDetail(item);
-        }
-      }}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       className={cn(
         "bg-white border h-full flex flex-col group transition-all duration-300 cursor-pointer relative",
         displayMode === 'large' ? "p-4" : "p-2 sm:p-2.5",

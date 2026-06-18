@@ -45,7 +45,15 @@ interface ArtistCombinerProps {
 }
 
 export function ArtistCombiner({ prompts, onOpenDetail }: ArtistCombinerProps) {
-  const [count, setCount] = useState(3);
+  const [count, setCount] = useState(() => {
+    const saved = localStorage.getItem('nai-muse-random-count');
+    return saved ? parseInt(saved, 10) : 3;
+  });
+
+  React.useEffect(() => {
+    localStorage.setItem('nai-muse-random-count', count.toString());
+  }, [count]);
+
   const [copied, setCopied] = useState(false);
   const [combination, setCombination] = useState<PromptItem[]>([]);
   const [isExpanded, setIsExpanded] = useState(true);

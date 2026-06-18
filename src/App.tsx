@@ -55,8 +55,7 @@ const CATEGORY_SUBS: Record<Category, string> = {
 
 declare global {
   interface Window {
-    addOrUpdateCard: (artistName: string, base64Image: string) => void;
-    fixArtistPrefix: () => void;
+    addOrUpdateCard: (artistName: string, base64Image: string, promptText?: string) => void;
   }
 }
 
@@ -72,28 +71,7 @@ export default function App() {
   }, [folders]);
 
   useEffect(() => {
-    // 保留给画廊加前缀的功能
-    window.fixArtistPrefix = () => {
-      const galleryIds = foldersRef.current.filter(f => f.name.includes('画廊')).map(f => f.id);
-      setPrompts(prev => {
-        const newPrompts = prev.map(p => {
-          // 只给画廊文件夹添加前缀
-          const inGallery = galleryIds.includes(p.folderId as string);
-          if (inGallery && p.prompts && !p.prompts.toLowerCase().includes('artist:')) {
-            return {
-              ...p,
-              prompts: `artist:${p.prompts}`
-            };
-          }
-          return p;
-        });
-        savePrompts(newPrompts).catch(console.error);
-        return newPrompts;
-      });
-      console.log("修复完成！只为画廊文件夹中没有 artist: 的卡片添加了前缀！");
-    };
-
-    window.addOrUpdateCard = async (artistName: string, base64Image: string) => {
+    window.addOrUpdateCard = async (artistName: string, base64Image: string, incomingPromptText?: string) => {
       if (!artistName || !base64Image) return;
 
       try {
@@ -117,7 +95,9 @@ export default function App() {
 
           let newPrompts = [...prev];
 
-          const promptText = artistName.toLowerCase().includes('artist:') ? artistName : `artist:${artistName}`;
+          const finalPromptText = incomingPromptText 
+            ? incomingPromptText 
+            : (artistName.toLowerCase().includes('artist:') ? artistName : `artist:${artistName}`);
 
           if (existingCardIndex >= 0) {
             // Update existing card by pushing the secureUrl
@@ -137,7 +117,7 @@ export default function App() {
               categoryId: currentCategory,
               folderId: targetFolderId,
               title: artistName,
-              prompts: promptText,
+              prompts: finalPromptText,
               tags: [],
               imageUrls: [secureUrl],
               imageUrl: secureUrl,
@@ -846,6 +826,7 @@ export default function App() {
           onDelete={handleDeletePrompt} 
           isManualSort={context.sortMode === 'manual'}
           onClickDetail={openDetailModal}
+          onDoubleClick={openEditModal}
           displayMode={context.displayMode}
           privacyMode={context.privacyMode}
           selectionMode={context.selectionMode}
