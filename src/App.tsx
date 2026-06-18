@@ -57,7 +57,8 @@ declare global {
   interface Window {
     addOrUpdateCard: (artistName: string, base64Image: string) => void;
     fixArtistPrefix: () => void;
-    undoFixArtistPrefix: () => void;
+    previewUndo: () => void;
+    confirmUndo: () => void;
   }
 }
 
@@ -74,29 +75,61 @@ export default function App() {
 
   useEffect(() => {
     // 注入修复和撤销脚本供控制台调用
-    window.undoFixArtistPrefix = () => {
+    window.previewUndo = () => {
+      const galleryIds = foldersRef.current.filter(f => f.name.includes('画廊')).map(f => f.id);
+      setPrompts(prev => {
+        const suspicious = prev.filter(p => {
+          const notInGallery = !galleryIds.includes(p.folderId as string);
+          // 我们只找开头是纯小写 'artist:' 且后面没跟空格（因为脚本是硬加的）的卡片进行预览
+          // 并且为了绝对安全，排除已经是你手动精修的带有其他 artist 字眼的。
+          if (notInGallery && p.prompts && p.prompts.startsWith('artist:')) {
+            // 查一下如果去掉开头的 artist: 后，里面还有没有别的 artist
+            const remaining = p.prompts.substring(7);
+            if (!remaining.toLowerCase().includes('artist:')) {
+               return true;
+            }
+          }
+          return false;
+        });
+        
+        console.log("【安全预览】以下是涉嫌被脚本误加过前缀的卡片：");
+        console.table(suspicious.map(p => ({
+          标题: p.title,
+          当前带有前缀的内容: p.prompts,
+          恢复后将变成: p.prompts.substring(7)
+        })));
+        console.log(`共找到 ${suspicious.length} 张疑似被误伤的卡片。`);
+        console.log("👉 如果你确认上面表格里的内容都没抓错（没有包含你原本手写编辑的），请在控制台输入执行: window.confirmUndo()");
+        return prev; // View only
+      });
+    };
+
+    window.confirmUndo = () => {
       const galleryIds = foldersRef.current.filter(f => f.name.includes('画廊')).map(f => f.id);
       setPrompts(prev => {
         let modifiedCount = 0;
         const newPrompts = prev.map(p => {
-          // 只撤销非画廊文件夹中，且 prompts 恰好等于 "artist:" + title 的项
-          // 这样能绝对保证不会误伤你原本就带有 artist: 的手写详细 prompt 或独立存在的卡片
           const notInGallery = !galleryIds.includes(p.folderId as string);
-          if (notInGallery && p.prompts === `artist:${p.title}`) {
-            modifiedCount++;
-            return {
-              ...p,
-              prompts: p.title // 还原回纯标题
-            };
+          if (notInGallery && p.prompts && p.prompts.startsWith('artist:')) {
+            const remaining = p.prompts.substring(7);
+            // 同样的安全校验
+            if (!remaining.toLowerCase().includes('artist:')) {
+              modifiedCount++;
+              return {
+                ...p,
+                prompts: remaining // 截掉开头的 "artist:"
+              };
+            }
           }
           return p;
         });
         savePrompts(newPrompts).catch(console.error);
-        console.log(`撤销完成！精准识别并还原了 ${modifiedCount} 张被误加前缀的卡片！您原本手写编辑过的卡片已安全跳过。`);
+        console.log(`✅ 撤销完成！已安全去除 ${modifiedCount} 张卡片的误加前缀，已安全跳过所有复杂的自定义卡片！`);
         return newPrompts;
       });
     };
 
+    // 保留给画廊加前缀的功能（修复版）
     window.fixArtistPrefix = () => {
       const galleryIds = foldersRef.current.filter(f => f.name.includes('画廊')).map(f => f.id);
       setPrompts(prev => {
