@@ -63,15 +63,22 @@ export const PromptCard: React.FC<PromptCardProps> = ({ item, onDelete, isManual
       return;
     }
     
-    // 如果有双击事件处理，则我们延迟执行单击，以便判断是否是双击
-    if (onDoubleClick && !readOnly) {
+    if (e.detail === 2) {
       if (clickTimeoutRef.current) {
         clearTimeout(clickTimeoutRef.current);
         clickTimeoutRef.current = null;
       }
+      return;
+    }
+
+    if (onDoubleClick && !readOnly) {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+      }
       clickTimeoutRef.current = setTimeout(() => {
         onClickDetail(item);
-      }, 250); // 250ms 用于判定双击
+        clickTimeoutRef.current = null;
+      }, 250);
     } else {
       onClickDetail(item);
     }
