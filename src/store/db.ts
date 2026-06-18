@@ -50,7 +50,8 @@ export async function savePrompts(prompts: PromptItem[]): Promise<void> {
     // For simplicity, we just completely write all current items. 
     prompts.forEach(p => {
       const ref = doc(db, "prompts", p.id);
-      batch.set(ref, p);
+      const cleanP = Object.fromEntries(Object.entries(p).filter(([_, v]) => v !== undefined));
+      batch.set(ref, cleanP);
     });
     
     await batch.commit();
@@ -92,7 +93,8 @@ export async function saveFolders(folders: FolderItem[]): Promise<void> {
     const batch = writeBatch(db);
     folders.forEach(f => {
       const ref = doc(db, "folders", f.id);
-      batch.set(ref, f);
+      const cleanF = Object.fromEntries(Object.entries(f).filter(([_, v]) => v !== undefined));
+      batch.set(ref, cleanF);
     });
     await batch.commit();
   } catch (err) {
