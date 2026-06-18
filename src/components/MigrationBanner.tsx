@@ -39,14 +39,23 @@ export function MigrationBanner({ prompts, setPrompts }: { prompts: PromptItem[]
       const newImageUrls = [];
       const currentList = p.imageUrls || (p.imageUrl ? [p.imageUrl] : []);
       
+      let lastErrorMessage = "";
+
       for (const b64 of currentList) {
+        if (!b64.startsWith('data:image')) {
+          newImageUrls.push(b64);
+          continue;
+        }
         try {
           const url = await uploadBase64ToCloudinary(b64);
           newImageUrls.push(url);
+          // Sleep for 300ms to avoid hitting API rate limits instantly
+          await new Promise(r => setTimeout(r, 300));
         } catch (err: any) {
           console.error("Migration failed for a base64 string", err);
           newImageUrls.push(b64); // keep it if fail
           hasError = true;
+          lastErrorMessage = err.message || err.toString();
         }
       }
       
@@ -63,14 +72,20 @@ export function MigrationBanner({ prompts, setPrompts }: { prompts: PromptItem[]
       
       migratedCount++;
       setProgress({ current: migratedCount, total: promptsToMigrate.length });
+
+      // Incremental save every 20 items so we don't lose progress if it crashes
+      if (migratedCount % 20 === 0) {
+        setPrompts([...newPrompts]);
+        await savePrompts([...newPrompts]);
+      }
     }
 
-    setPrompts(newPrompts);
+    setPrompts([...newPrompts]);
     await savePrompts(newPrompts);
     setMigrating(false);
     
     if (hasError) {
-      setErrorMsg("部分图片上传失败，请检查由于上传频繁或API限额导致的问题。(Some images failed to upload, possibly due to rate limits or invalid keys.)");
+      setErrorMsg(`上传存在失败: ${lastErrorMessage} (由于网络或速率限制，可刷新页面后点击继续)`);
     }
   };
 
