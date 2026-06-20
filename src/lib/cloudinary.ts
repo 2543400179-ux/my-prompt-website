@@ -7,9 +7,14 @@ async function generateSHA1(message: string) {
 }
 
 export async function uploadBase64ToCloudinary(base64: string): Promise<string> {
-  if (!base64.startsWith('data:image')) {
-    if (base64.startsWith('http')) return base64;
+  if (base64.startsWith('http')) {
     return base64;
+  }
+  
+  let validBase64 = base64;
+  // If it's pure base64 without data prefix, add it.
+  if (!base64.startsWith('data:')) {
+    validBase64 = `data:image/jpeg;base64,${base64}`;
   }
 
   try {
@@ -26,7 +31,7 @@ export async function uploadBase64ToCloudinary(base64: string): Promise<string> 
     const signature = await generateSHA1(paramsToSign);
 
     const formData = new FormData();
-    formData.append("file", base64);
+    formData.append("file", validBase64);
     formData.append("api_key", apiKey);
     formData.append("timestamp", timestamp.toString());
     formData.append("signature", signature);

@@ -49,9 +49,12 @@ export async function savePrompts(prompts: PromptItem[]): Promise<void> {
 
     // Only save items that don't have base64 images, because base64 strings are too large for Firestore
     const validPrompts = prompts.filter(p => {
+      // Any data uri OR any string larger than 50KB is probably a raw base64 string
+      const isTooBig = (p.imageUrl && p.imageUrl.length > 50000) || 
+                       (p.imageUrls && p.imageUrls.some((u: string) => u.length > 50000));
       const hasBase64 = (p.imageUrl && p.imageUrl.startsWith('data:')) || 
                         (p.imageUrls && p.imageUrls.some((u: string) => u.startsWith('data:')));
-      if (hasBase64) return false;
+      if (hasBase64 || isTooBig) return false;
 
       const newStr = JSON.stringify(p);
       return !oldMap.has(p.id) || oldMap.get(p.id) !== newStr;

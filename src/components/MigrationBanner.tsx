@@ -10,8 +10,8 @@ export function MigrationBanner({ prompts, setPrompts }: { prompts: PromptItem[]
   const [errorMsg, setErrorMsg] = useState("");
 
   const needsMigration = prompts.some(p => 
-    (p.imageUrl && p.imageUrl.startsWith('data:')) || 
-    (p.imageUrls && p.imageUrls.some(u => u.startsWith('data:')))
+    (p.imageUrl && (p.imageUrl.startsWith('data:') || (!p.imageUrl.startsWith('http') && p.imageUrl.length > 1000))) || 
+    (p.imageUrls && p.imageUrls.some((u: string) => u.startsWith('data:') || (!u.startsWith('http') && u.length > 1000)))
   );
 
   if (!needsMigration) return null;
@@ -23,8 +23,8 @@ export function MigrationBanner({ prompts, setPrompts }: { prompts: PromptItem[]
     
     // We count how many prompts need migration
     const promptsToMigrate = prompts.filter(p => 
-      (p.imageUrl && p.imageUrl.startsWith('data:')) || 
-      (p.imageUrls && p.imageUrls.some(u => u.startsWith('data:')))
+      (p.imageUrl && (p.imageUrl.startsWith('data:') || (!p.imageUrl.startsWith('http') && p.imageUrl.length > 1000))) || 
+      (p.imageUrls && p.imageUrls.some((u: string) => u.startsWith('data:') || (!u.startsWith('http') && u.length > 1000)))
     );
 
     setProgress({ current: 0, total: promptsToMigrate.length });
@@ -42,7 +42,7 @@ export function MigrationBanner({ prompts, setPrompts }: { prompts: PromptItem[]
       let lastErrorMessage = "";
 
       for (const b64 of currentList) {
-        if (!b64.startsWith('data:')) {
+        if (b64.startsWith('http') || b64.length < 1000) {
           newImageUrls.push(b64);
           continue;
         }
@@ -95,7 +95,10 @@ export function MigrationBanner({ prompts, setPrompts }: { prompts: PromptItem[]
         <Cloud className="text-amber-600 shrink-0 mt-1 sm:mt-0" />
         <div>
           <h3 className="text-sm font-bold text-amber-900">数据迁移提醒 / Cloud Migration Required</h3>
-          <p className="text-xs text-amber-800 mt-1">您有 {prompts.filter(p => (p.imageUrl && p.imageUrl.startsWith('data:')) || (p.imageUrls && p.imageUrls.some(u => u.startsWith('data:')))).length} 个本地图片需要上传至云端，以保证同步和导出正常工作。</p>
+          <p className="text-xs text-amber-800 mt-1">您有 {prompts.filter(p => 
+      (p.imageUrl && (p.imageUrl.startsWith('data:') || (!p.imageUrl.startsWith('http') && p.imageUrl.length > 1000))) || 
+      (p.imageUrls && p.imageUrls.some((u: string) => u.startsWith('data:') || (!u.startsWith('http') && u.length > 1000)))
+    ).length} 个本地图片需要上传至云端，以保证同步和导出正常工作。</p>
           {errorMsg && <p className="text-xs text-red-600 font-bold mt-2">{errorMsg}</p>}
         </div>
       </div>

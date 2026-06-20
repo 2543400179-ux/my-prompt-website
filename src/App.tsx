@@ -615,6 +615,10 @@ export default function App() {
          }
 
          base64List.forEach((b64, idx) => {
+            if (b64.startsWith('http')) {
+               // We don't embed Cloudinary links into zip blob
+               return;
+            }
             const mimeMatch = b64.match(/^data:([^;]+);base64,/);
             const ext = mimeMatch && mimeMatch[1].startsWith('image/') ? mimeMatch[1].split('/')[1] : 'jpg';
             const cleanBase64 = b64.includes(',') ? b64.split(',')[1] : b64;
@@ -624,7 +628,11 @@ export default function App() {
             
             newP._imageFiles.push(filePath);
             
-            zip.file(filePath, cleanBase64, { base64: true });
+            try {
+               zip.file(filePath, cleanBase64, { base64: true });
+            } catch (err) {
+               console.warn("Skipping invalid base64 string for file:", fileName);
+            }
          });
          
          return newP;
